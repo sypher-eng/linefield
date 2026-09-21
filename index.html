@@ -520,12 +520,16 @@ const probBelow = (stat, xs, x) => interp(interp(x, xs, LV), LV, curve(stat));  
 const quantileAt = (stat, xs, p) => interp(interp(p, curve(stat), LV), LV, xs);          // calibrated quantile
 const centred = (q, c) => q.map(v => (v == null ? null : v + (c - q[2])));
 const breakEven = p => { const n = Number(p); return n < 0 ? -n / (-n + 100) : 100 / (n + 100); };
+// Displayed win chance follows what actually happened in 2025 testing, band by
+// band: up to 60% the math held up; plays the math put ABOVE 60% won only 53%,
+// so they show 53% -- not a capped 58% -- and are never flagged Top tier.
+const TOP_TIER = [0.56, 0.60];   // won 58.5% vs ~54% needed in 2025 testing
 function winChance(stat, q, consensus, side, line) {
   const xs = ladder(consensus != null ? centred(q, consensus) : q);
   const below = probBelow(stat, xs, line);
-  return Math.min(side === "under" ? below : 1 - below, DATA.win_cap || 0.58);
+  const raw = side === "under" ? below : 1 - below;
+  return { raw, shown: raw > 0.60 ? 0.53 : Math.min(raw, DATA.win_cap || 0.58) };
 }
-const TOP_TIER = 0.56;   // the band that won 58.5% vs ~54% needed in 2025 testing
 function forecastCell(stat, q) {
   const xs = ladder(q), lo = quantileAt(stat, xs, 0.1), hi = quantileAt(stat, xs, 0.9);
   const d = stat === "receptions" ? 1 : 0;
@@ -606,7 +610,8 @@ function panelBest() {
     const pr = findProj(r.player, r.market);
     if (pr && r.tier.startsWith("A")) {
       const [side, line] = r.play.split(" ");
-      out.win = winChance(r.market, pr.s[r.market], r.consensus, side, +line);
+      const w = winChance(r.market, pr.s[r.market], r.consensus, side, +line);
+      out.win = w.shown; out.top = w.raw >= TOP_TIER[0] && w.raw < TOP_TIER[1];
       out.need = breakEven(r.price);
     }
     out.proj = pr ? pr.s[r.market] : null;
@@ -632,7 +637,7 @@ function panelBest() {
         <td>${esc(book(r.book))}</td>
         <td class="gain">${gain}${r.evidence ? `<div class="sub" style="margin-top:4px">${esc(r.evidence)}</div>` : ""}<span class="kind flag gold">${isNumber ? "Better number" : "Better price"}</span></td>
         <td class="fc">${r.proj ? forecastCell(r.market, r.proj) : '<span class="sub">—</span>'}</td>
-        <td class="wc">${r.win != null ? `<b class="num ${r.win > r.need ? "pos" : ""}">${Math.round(100 * r.win)}%</b><div class="sub num">need ${Math.round(100 * r.need)}%</div>${r.win >= TOP_TIER ? '<span class="kind flag good">Top tier</span>' : ""}` : '<span class="sub">—</span>'}</td>
+        <td class="wc">${r.win != null ? `<b class="num ${r.win > r.need ? "pos" : ""}">${Math.round(100 * r.win)}%</b><div class="sub num">need ${Math.round(100 * r.need)}%</div>${r.top ? '<span class="kind flag good">Top tier</span>' : ""}` : '<span class="sub">—</span>'}</td>
         <td>${res ? resBox(res) : '<span class="sub">—</span>'}</td>
       </tr>`;
     }
@@ -656,7 +661,7 @@ function panelBest() {
       "Ranked by what has actually won. Only kinds of plays with a winning record over three seasons plus our live results make the list, strongest first. <strong>Better number / price</strong>: one book is off the market in your favor. <strong>Middles</strong>: two books far enough apart that both sides can win.",
       seg("filter", state.filter, [["all", "All", DATA.best.length], ["A", "Better #", A.length], ["B", "Middles", B.length]]) +
       seg("sort", state.sort || "rank", [["rank", "By rank"], ["win", "By win chance"]]) + gameSelect(DATA.best) + searchBox("Search players")) +
-    `<p class="sub" style="margin:-8px 0 14px">Forecast: our model's projection and 80% range. Win chance: centred on the market's line, capped at 58%. <b class="pos">Top tier</b> plays won 58.5% in 2025 testing, against about 54% needed to profit.</p>` +
+    `<p class="sub" style="margin:-8px 0 14px">Forecast: our model's projection and 80% range. Win chance: centred on the market's line and matched to how often plays like it actually won. <b class="pos">Top tier</b> plays won 58.5% in 2025 testing, against about 54% needed to profit.</p>` +
     (body ? `<div class="table-wrap"><table class="plays">
       <thead><tr><th>#</th><th>Player</th><th>Game</th><th>Play</th><th class="r">Price</th><th>Book</th><th>Why it's here</th><th>Forecast</th><th>Win chance</th><th>Result</th></tr></thead>
       <tbody class="anim-rows">${body}</tbody></table></div>`
