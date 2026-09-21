@@ -399,6 +399,33 @@
   .quick { display: flex; gap: 6px; margin-top: 12px; }
   .quick .chip { border: 1px solid var(--line-2); background: none; color: var(--muted); padding: 5px 10px; font: 500 12px var(--mono); cursor: pointer; }
   @media (max-width: 760px) { .calc-out { grid-template-columns: 1fr 1fr; } }
+  .howbtn {
+    display: inline-block; margin-top: 8px; border: 1px solid var(--steel); background: none; color: var(--steel);
+    font: 700 11px/1 var(--display); letter-spacing: 0.14em; text-transform: uppercase; padding: 6px 9px; cursor: pointer;
+  }
+  .howbtn:hover { background: var(--steel); color: var(--ink); }
+  dialog#howto {
+    width: min(620px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow: auto; padding: 0;
+    border: 0; border-top: 3px solid var(--steel); background: var(--raise); color: var(--text);
+    clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+  }
+  dialog#howto::backdrop { background: rgba(var(--ground-rgb), 0.78); backdrop-filter: blur(3px); }
+  .ht { padding: 22px 24px 24px; display: grid; gap: 16px; }
+  .ht-head { display: flex; justify-content: space-between; gap: 16px; align-items: start; }
+  .ht h3 { font: 900 30px/0.95 var(--display); text-transform: uppercase; margin: 0; }
+  .ht .x { border: 1px solid var(--line-2); background: none; color: var(--muted); width: 32px; height: 32px; cursor: pointer; font: 400 18px/1 var(--mono); }
+  .ht .x:hover { color: var(--text); border-color: var(--text); }
+  .ht table { font-size: 14px; }
+  .ht td, .ht th { padding: 9px 10px; }
+  .ht .window { font: 800 22px/1.1 var(--display); text-transform: uppercase; color: var(--steel); }
+  .ht .verdict { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 2px solid var(--text); border-bottom: 1px solid var(--line-2); }
+  .ht .verdict div { padding: 10px 12px; border-left: 1px solid var(--line); }
+  .ht .verdict div:first-child { border-left: 0; }
+  .ht .verdict span { display: block; font: 700 10.5px/1 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+  .ht .verdict b { display: block; font: 900 30px/1 var(--display); margin-top: 6px; }
+  .ht ol { margin: 0; padding-left: 20px; display: grid; gap: 7px; color: var(--muted); }
+  .ht ol b { color: var(--text); font-weight: 600; }
+  @media (max-width: 560px) { .ht .verdict { grid-template-columns: 1fr; } .ht .verdict div { border-left: 0; border-top: 1px solid var(--line); } }
   .subhead { font: 800 26px/1 var(--display); text-transform: uppercase; margin: 36px 0 6px; }
 
   footer { border-top: 2px solid var(--line-2); padding-block: 26px 44px; color: var(--muted); font-size: 13px; display: grid; gap: 18px; }
@@ -449,6 +476,8 @@
   <div class="tabs-bar"><div class="tabs" role="tablist" aria-label="Board" id="tabs"></div></div>
 
   <main id="panel" role="tabpanel"></main>
+
+  <dialog id="howto" aria-labelledby="howtoTitle"><div id="howtoBody"></div></dialog>
 
   <footer>
     <div class="evidence">
@@ -535,6 +564,55 @@ function forecastCell(stat, q) {
   const xs = ladder(q), lo = quantileAt(stat, xs, 0.1), hi = quantileAt(stat, xs, 0.9);
   const d = stat === "receptions" ? 1 : 0;
   return `<b class="num">${Number(q[2]).toFixed(d)}</b><div class="sub num">${lo.toFixed(d)}–${hi.toFixed(d)}</div>`;
+}
+
+/* ---------- "How to bet a middle" pop-up ----------
+   Every middle rendered on a page registers its numbers here; its button
+   carries the index. The pop-up works the example out for that exact middle. */
+let MIDS = [];
+const UNIT = { receiving_yards: "yards", rushing_yards: "yards", passing_yards: "yards", receptions: "catches" };
+function midButton(m) { MIDS.push(m); return `<button class="howbtn" data-howto="${MIDS.length - 1}">How to bet this</button>`; }
+const decOdds = p => { const n = Number(p); return n < 0 ? 1 + 100 / -n : 1 + n / 100; };
+function openHowto(m) {
+  const unit = UNIT[m.stat] || "";
+  const lo = Math.floor(m.lo) + 1, hi = Math.ceil(m.hi) - 1;
+  const win = hi < lo ? "none" : hi - lo <= 3 ? Array.from({ length: hi - lo + 1 }, (_, i) => lo + i).join(", ").replace(/, (\d+)$/, " or $1") : `${lo} to ${hi}`;
+  const po = decOdds(m.po), pu = decOdds(m.pu);
+  const both = 100 * ((po - 1) + (pu - 1)), onlyO = 100 * ((po - 1) - 1), onlyU = 100 * ((pu - 1) - 1);
+  const missAvg = -(onlyO + onlyU) / 2, need = missAvg / (both + missAvg);
+  const chance = m.pm, value = m.ev;
+  const $$ = v => (v >= 0 ? "+$" : "−$") + Math.abs(v).toFixed(0);
+  $("#howtoBody").innerHTML = `<div class="ht">
+    <div class="ht-head"><div><div class="kicker" style="color:var(--steel)">${esc(m.matchup || "")}</div>
+      <h3 id="howtoTitle">How to bet this middle</h3>
+      <div class="sub" style="margin-top:6px">${esc(m.player)} · ${esc(mkt(m.stat))}</div></div>
+      <button class="x" data-close aria-label="Close">×</button></div>
+    <p style="margin:0;color:var(--muted)">A middle isn't a pick on over or under. You bet <b style="color:var(--text)">both sides at two books</b>, and win both if the result lands between the lines.</p>
+    <div class="table-wrap"><table><thead><tr><th>Bet</th><th>Line</th><th class="r">Price</th><th>Book</th></tr></thead><tbody>
+      <tr><td>Over</td><td class="num">${esc(m.lo)}</td><td class="r num">${esc(price(m.po))}</td><td>${esc(book(m.loBook))}</td></tr>
+      <tr><td>Under</td><td class="num">${esc(m.hi)}</td><td class="r num">${esc(price(m.pu))}</td><td>${esc(book(m.hiBook))}</td></tr>
+    </tbody></table></div>
+    <div><span class="sub">The window</span><div class="window">${esc(win)} ${esc(unit)}</div></div>
+    <div class="table-wrap"><table><thead><tr><th>With $100 on each side</th><th class="r">You</th></tr></thead><tbody>
+      <tr><td>Lands in the window: both bets win</td><td class="r num pos">${$$(both)}</td></tr>
+      <tr><td>${esc(Math.ceil(m.hi))}+ ${esc(unit)}: only the over wins</td><td class="r num neg">${$$(onlyO)}</td></tr>
+      <tr><td>${esc(Math.floor(m.lo))} or fewer: only the under wins</td><td class="r num neg">${$$(onlyU)}</td></tr>
+    </tbody></table></div>
+    <div class="verdict">
+      <div><span>Needed to break even</span><b class="num">${(100 * need).toFixed(1)}%</b></div>
+      <div><span>Chance it lands in the window</span><b class="num">${chance != null ? (100 * chance).toFixed(1) + "%" : "—"}</b></div>
+      <div><span>Value</span><b class="num ${value > 0 ? "pos" : "neg"}">${value != null ? signed(value, 1) + "%" : "—"}</b></div>
+    </div>
+    <ol>
+      <li><b>Have accounts funded at both books</b> before you start. Both bets need to go in within a minute or two.</li>
+      <li><b>Check both lines are still up.</b> If either book moves, the window shrinks and the value can disappear. Don't chase a worse number.</li>
+      <li><b>Bet the leg most likely to move first</b> — the book out of step with the market — then the other straight away.</li>
+      <li><b>Use equal stakes</b>, like $100 and $100. At these prices a miss costs about the same either way.</li>
+      <li><b>Keep it small and expect to lose most of them.</b> This one misses about ${chance != null ? Math.round(100 * (1 - chance)) : 90}% of the time for a small loss. The money comes from the occasional hit over many middles.</li>
+      <li><b>If the player doesn't play,</b> both bets are usually voided and refunded. Books can limit accounts that middle a lot, so mix it in with other bets.</li>
+    </ol>
+  </div>`;
+  const d = $("#howto"); if (d.showModal) d.showModal(); else d.setAttribute("open", "");
 }
 
 /* graded results, keyed to the play they settle */
@@ -656,7 +734,9 @@ function panelBest() {
       <td class="call"><span class="side">O/U</span><span class="mid">${esc(m.lo)}–${esc(m.hi)}</span></td>
       <td class="r px">${esc(po)}<br>${esc(pu)}</td>
       <td>${esc(book(m.loBook))}<br>${esc(book(m.hiBook))}</td>
-      <td class="gain">Lands in window <b class="num">${pm ? pm[1] : "—"}</b> · EV <b class="num ${ev && +ev[1] > 0 ? "pos" : ""}">${ev ? ev[1] + "%" : "—"}</b><span class="kind flag steel">Middle</span></td>
+      <td class="gain">Lands in window <b class="num">${pm ? pm[1] : "—"}</b> · EV <b class="num ${ev && +ev[1] > 0 ? "pos" : ""}">${ev ? ev[1] + "%" : "—"}</b><span class="kind flag steel">Middle</span>
+        ${midButton({ player: r.player, stat: r.market, matchup: r.matchup, lo: m.lo, hi: m.hi, po, pu, loBook: m.loBook, hiBook: m.hiBook,
+                      pm: pm ? parseFloat(pm[1]) / 100 : null, ev: ev ? +ev[1] : null })}</td>
       <td class="fc">${r.proj ? forecastCell(r.market, r.proj) : '<span class="sub">—</span>'}</td>
       <td class="wc"><span class="sub">see window</span></td>
       <td>${res ? resBox(res) : '<span class="sub">—</span>'}</td>
@@ -746,7 +826,9 @@ function panelMiddles() {
       <td><span class="quote">o${esc(r.over_line)}<span class="p">${esc(price(r.over_price))}</span></span><div class="sub">${esc(book(r.over_book))}</div></td>
       <td><span class="quote">u${esc(r.under_line)}<span class="p">${esc(price(r.under_price))}</span></span><div class="sub">${esc(book(r.under_book))}</div></td>
       <td class="r num">${pct(r.p_middle)}</td>
-      <td class="r num ${r.ev_pct > 0 ? "pos" : "neg"}">${signed(r.ev_pct)}%</td>
+      <td class="r num ${r.ev_pct > 0 ? "pos" : "neg"}">${signed(r.ev_pct)}%<div>${midButton({ player: r.player_book, stat: r.stat, matchup: r.matchup,
+        lo: r.over_line, hi: r.under_line, po: r.over_price, pu: r.under_price, loBook: r.over_book, hiBook: r.under_book,
+        pm: r.p_middle, ev: r.ev_pct })}</div></td>
     </tr>`).join("");
   return head("Middles",
       "Over at the low book, under at the high book. Land in the shaded window and both win; miss it and one wins, one loses. Most middles lose a little — only the positive-EV rows are worth a look.",
@@ -914,6 +996,7 @@ function render(keepFocus) {
   const active = document.activeElement && document.activeElement.id;
   const caret = active === "q" ? document.activeElement.selectionStart : null;
   $("#panel").setAttribute("aria-labelledby", "tab-" + state.tab);
+  MIDS = [];
   $("#panel").innerHTML = PANELS[state.tab]();
   for (const box of $("#panel").querySelectorAll(".anim-rows, .tally, .cols, .waffle-wrap")) {
     box.classList.add("anim");
@@ -944,6 +1027,8 @@ function applyPalette(id) {
 
 /* ---------------- events ---------------- */
 document.addEventListener("click", e => {
+  const hb = e.target.closest("[data-howto]"); if (hb) { openHowto(MIDS[+hb.dataset.howto]); return; }
+  if (e.target.closest("[data-close]") || e.target.id === "howto") { $("#howto").close(); return; }
   const pb = e.target.closest("[data-pal]"); if (pb) { applyPalette(pb.dataset.pal); return; }
   const t = e.target.closest("[data-tab]");
   if (t) { state = { tab: t.dataset.tab, q: "", game: "", filter: "all", market: "", pos: "" }; try { localStorage.setItem("lf.tab", state.tab); } catch (err) {} render(); return; }
