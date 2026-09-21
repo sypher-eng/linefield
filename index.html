@@ -404,6 +404,9 @@
     font: 700 11px/1 var(--display); letter-spacing: 0.14em; text-transform: uppercase; padding: 6px 9px; cursor: pointer;
   }
   .howbtn:hover { background: var(--steel); color: var(--ink); }
+  .howbtn.gold { border-color: var(--gold); color: var(--gold); }
+  .howbtn.gold:hover { background: var(--gold); color: var(--ink); }
+  .ht .verdict small { display: block; margin-top: 4px; font-size: 11.5px; }
   dialog#howto {
     width: min(620px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow: auto; padding: 0;
     border: 0; border-top: 3px solid var(--steel); background: var(--raise); color: var(--text);
@@ -615,6 +618,67 @@ function openHowto(m) {
   const d = $("#howto"); if (d.showModal) d.showModal(); else d.setAttribute("open", "");
 }
 
+/* ---------- "What this means" pop-up for better number / better price ---------- */
+function edgeButton(m) { MIDS.push({ ...m, kind: "edge" }); return `<button class="howbtn gold" data-howto="${MIDS.length - 1}">What this means</button>`; }
+const priceFromBE = be => (be > 0.5 ? -Math.round(100 * be / (1 - be)) : Math.round(100 * (1 - be) / be));
+function openEdge(m) {
+  const unit = UNIT[m.stat] || "", under = m.side === "under";
+  const isNumber = m.isNumber, line = +m.line, cons = +m.cons;
+  const pay = 100 * (decOdds(m.price) - 1);
+  let body;
+  if (isNumber) {
+    const a = under ? Math.floor(cons) + 1 : Math.ceil(line) + 0, b = under ? Math.floor(line) : Math.floor(cons);
+    const extra = under ? [Math.floor(cons) + 1, Math.floor(line)] : [Math.ceil(line), Math.floor(cons)];
+    const list = extra[1] < extra[0] ? "" : extra[1] - extra[0] <= 3
+      ? Array.from({ length: extra[1] - extra[0] + 1 }, (_, i) => extra[0] + i).join(", ").replace(/, (\d+)$/, " or $1")
+      : `${extra[0]} to ${extra[1]}`;
+    let gain = null;
+    if (m.q) {
+      const at = x => winChance(m.stat, m.q, cons, m.side, x).raw;
+      gain = at(line) - at(cons);
+    }
+    body = `
+      <p style="margin:0;color:var(--muted)">Every other book has this at <b style="color:var(--text)">${esc(cons)}</b>. ${esc(book(m.book))} has it at <b style="color:var(--text)">${esc(line)}</b> — a number ${Math.abs(line - cons).toFixed(1)} ${esc(unit)} easier to win.</p>
+      <div class="table-wrap"><table><thead><tr><th></th><th>Line</th><th>You win if he gets</th></tr></thead><tbody>
+        <tr><td>Everywhere else</td><td class="num">${esc(m.side)} ${esc(cons)}</td><td>${under ? `${Math.floor(cons)} or fewer` : `${Math.ceil(cons)} or more`} ${esc(unit)}</td></tr>
+        <tr><td><b>${esc(book(m.book))}</b></td><td class="num hi">${esc(m.side)} ${esc(line)}</td><td><b>${under ? `${Math.floor(line)} or fewer` : `${Math.ceil(line)} or more`} ${esc(unit)}</b></td></tr>
+      </tbody></table></div>
+      ${list ? `<div><span class="sub">Extra results that win here and lose everywhere else</span><div class="window" style="color:var(--gold)">${esc(list)} ${esc(unit)}</div></div>` : ""}`;
+    m.gain = gain;
+  } else {
+    const pts = parseFloat(String(m.edge || "").replace(/[^\d.]/g, "")) || 0;
+    const typicalBE = m.need + pts / 100, typicalPrice = priceFromBE(typicalBE);
+    const typicalPay = 100 * (decOdds(typicalPrice) - 1);
+    body = `
+      <p style="margin:0;color:var(--muted)">Same line as everywhere else — <b style="color:var(--text)">${esc(m.side)} ${esc(line)}</b> — but ${esc(book(m.book))} pays more when it wins.</p>
+      <div class="table-wrap"><table><thead><tr><th>A $100 bet that wins pays</th><th class="r">Price</th><th class="r">Profit</th><th class="r">Win rate to break even</th></tr></thead><tbody>
+        <tr><td>Typical book</td><td class="r num">${esc(price(typicalPrice))}</td><td class="r num">+$${typicalPay.toFixed(0)}</td><td class="r num">${(100 * typicalBE).toFixed(1)}%</td></tr>
+        <tr><td><b>${esc(book(m.book))}</b></td><td class="r num hi">${esc(price(m.price))}</td><td class="r num pos">+$${pay.toFixed(0)}</td><td class="r num">${(100 * m.need).toFixed(1)}%</td></tr>
+      </tbody></table></div>
+      <p style="margin:0;color:var(--muted)">Needing to win <b style="color:var(--text)">${pts.toFixed(1)} fewer times in 100</b> is the whole edge. Over a season of bets, that's the difference between losing to the vig and not.</p>`;
+  }
+  $("#howtoBody").innerHTML = `<div class="ht">
+    <div class="ht-head"><div><div class="kicker" style="color:var(--gold)">${esc(m.matchup || "")}</div>
+      <h3 id="howtoTitle">${isNumber ? "Why this is a better number" : "Why this is a better price"}</h3>
+      <div class="sub" style="margin-top:6px">${esc(m.player)} · ${esc(mkt(m.stat))} · ${esc(m.side)} ${esc(line)} at ${esc(price(m.price))}, ${esc(book(m.book))}</div></div>
+      <button class="x" data-close aria-label="Close">×</button></div>
+    ${body}
+    <div class="verdict">
+      <div><span>Win chance</span><b class="num">${m.win != null ? Math.round(100 * m.win) + "%" : "—"}</b>${m.gain != null ? `<small class="sub">+${(100 * m.gain).toFixed(1)} pts from the better number</small>` : ""}</div>
+      <div><span>Needed to break even</span><b class="num">${(100 * m.need).toFixed(1)}%</b></div>
+      <div><span>Value</span><b class="num ${m.ev > 0 ? "pos" : "neg"}">${m.ev != null ? signed(m.ev, 1) + "%" : "—"}</b></div>
+    </div>
+    <ol>
+      <li><b>Bet it at ${esc(book(m.book))} only.</b> The edge is this book's number — the same bet anywhere else doesn't have it.</li>
+      <li><b>Check the line is still ${esc(line)} at ${esc(price(m.price))}.</b> Off-market numbers get corrected, often within minutes. If it's moved to the market, the edge is gone — skip it.</li>
+      <li><b>Take it early.</b> A number out of step with every other book is usually a book that hasn't caught up yet.</li>
+      <li><b>Keep stakes steady.</b> A better number raises your odds a little on each bet; it doesn't make any one bet a lock. It pays off across many bets.</li>
+      <li><b>Know why it could be off.</b> Sometimes the odd book knows something — injury news, a role change. Check Who's Out before you bet.</li>
+    </ol>
+  </div>`;
+  const d = $("#howto"); if (d.showModal) d.showModal(); else d.setAttribute("open", "");
+}
+
 /* graded results, keyed to the play they settle */
 const RESULTS = {};
 for (const r of DATA.ledger) if (r.season === DATA.season && r.week === DATA.week) RESULTS[`${r.player}|${r.market}|${r.play}`] = r;
@@ -718,7 +782,9 @@ function panelBest() {
         <td class="call"><span class="side">${esc(side)}</span><span class="val">${esc(line)}</span></td>
         <td class="r px">${esc(price(r.price))}</td>
         <td>${esc(book(r.book))}</td>
-        <td class="gain">${gain}${r.evidence ? `<div class="sub" style="margin-top:4px">${esc(r.evidence)}</div>` : ""}<span class="kind flag gold">${isNumber ? "Better number" : "Better price"}</span></td>
+        <td class="gain">${gain}${r.evidence ? `<div class="sub" style="margin-top:4px">${esc(r.evidence)}</div>` : ""}<span class="kind flag gold">${isNumber ? "Better number" : "Better price"}</span>
+          ${edgeButton({ player: r.player, stat: r.market, matchup: r.matchup, side, line: +line, cons: r.consensus, price: r.price,
+                         book: r.book, isNumber, edge: r.edge, need: breakEven(r.price), win: r.win, ev: r.ev, q: r.proj })}</td>
         <td class="fc">${r.proj ? forecastCell(r.market, r.proj) : '<span class="sub">—</span>'}</td>
         <td class="wc">${r.win != null ? `<b class="num ${r.win > r.need ? "pos" : ""}">${Math.round(100 * r.win)}%</b><div class="sub num">need ${Math.round(100 * r.need)}% · <span class="${r.ev >= 0 ? "pos" : "neg"}">${r.ev >= 0 ? "+" : ""}${r.ev.toFixed(1)}% value</span></div>${r.top ? '<span class="kind flag good">Top tier</span>' : ""}` : '<span class="sub">—</span>'}</td>
         <td>${res ? resBox(res) : '<span class="sub">—</span>'}</td>
@@ -1027,7 +1093,8 @@ function applyPalette(id) {
 
 /* ---------------- events ---------------- */
 document.addEventListener("click", e => {
-  const hb = e.target.closest("[data-howto]"); if (hb) { openHowto(MIDS[+hb.dataset.howto]); return; }
+  const hb = e.target.closest("[data-howto]");
+  if (hb) { const m = MIDS[+hb.dataset.howto]; (m.kind === "edge" ? openEdge : openHowto)(m); return; }
   if (e.target.closest("[data-close]") || e.target.id === "howto") { $("#howto").close(); return; }
   const pb = e.target.closest("[data-pal]"); if (pb) { applyPalette(pb.dataset.pal); return; }
   const t = e.target.closest("[data-tab]");
