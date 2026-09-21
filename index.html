@@ -159,7 +159,9 @@
   button, input, select { font: inherit; color: inherit; }
   :focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
   .num { font-family: var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
-  .wrap { max-width: 1200px; margin-inline: auto; }
+  .wrap { max-width: 1200px; margin-inline: auto; position: relative; z-index: 1; }
+  /* one fixed canvas behind everything: sparse sky + the hero's yard-line field */
+  #sky { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
   .cap { font-family: var(--display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
 
   /* ---------- nav ---------- */
@@ -185,11 +187,6 @@
 
   /* ---------- hero ---------- */
   .hero { position: relative; padding-block: 36px 40px; }
-  .hero canvas {
-    position: absolute; inset: -110px calc(-1 * clamp(16px, 4vw, 48px)) 0;
-    width: calc(100% + 2 * clamp(16px, 4vw, 48px)); height: calc(100% + 110px);
-    z-index: 0; pointer-events: none;
-  }
   .hero-inner { position: relative; z-index: 1; }
   .kicker { display: flex; gap: 10px; align-items: center; font: 700 13px/1 var(--display); letter-spacing: 0.22em; text-transform: uppercase; color: var(--steel); }
   .kicker::before { content: ""; width: 28px; height: 2px; background: var(--steel); }
@@ -212,6 +209,20 @@
   .board b { display: block; font: 800 38px/1 var(--display); margin-top: 8px; font-variant-numeric: tabular-nums; }
   .board small { display: block; font-size: 11.5px; color: var(--faint); margin-top: 3px; }
   .board .accent b { color: var(--gold); }
+
+  /* ---------- DNA helix band ---------- */
+  .helix {
+    position: relative; height: 104px; margin-inline: calc(-1 * clamp(16px, 4vw, 48px));
+    border-top: 1px solid var(--line); overflow: hidden;
+  }
+  .helix canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .helix-cap {
+    position: absolute; inset: auto 0 8px; display: flex; justify-content: space-between; gap: 12px;
+    padding-inline: clamp(16px, 4vw, 48px); font: 400 10.5px/1 var(--mono); letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .helix-cap span { background: rgba(var(--ground-rgb), 0.75); padding: 3px 5px; }
+  .helix-cap b { color: var(--gold); font-weight: 500; }
 
   /* ---------- tabs: broadcast lower-third ---------- */
   .tabs-bar {
@@ -290,8 +301,13 @@
     clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
   }
   .ticket::before { content: ""; height: 3px; background: var(--line-2); }
-  .ticket.a::before { background: var(--gold); }
-  .ticket.b::before { background: var(--steel); }
+  .ticket.a::before, .ticket.b::before {
+    background-image: linear-gradient(90deg, var(--edge) 0 42%, var(--text) 50%, var(--edge) 58% 100%);
+    background-size: 260% 100%; background-position: 100% 0;
+  }
+  .ticket.a { --edge: var(--gold); } .ticket.b { --edge: var(--steel); }
+  .ticket:hover::before { animation: sweep 0.9s cubic-bezier(.4, 0, .2, 1); }
+  @keyframes sweep { from { background-position: 100% 0; } to { background-position: -60% 0; } }
   .ticket .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 16px 0; }
   .ticket .game { font: 700 12.5px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
   .ticket .body { padding: 12px 16px 16px; display: grid; gap: 10px; }
@@ -321,7 +337,7 @@
   .stub .why b { color: var(--text); font-weight: 600; }
 
   /* ---------- tables: broadcast stat sheet ---------- */
-  .table-wrap { overflow-x: auto; border-top: 2px solid var(--text); }
+  .table-wrap { overflow-x: auto; border-top: 2px solid var(--text); background: rgba(var(--ground-rgb), 0.9); }
   table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
   th {
     text-align: left; font: 700 11.5px/1 var(--display); letter-spacing: 0.16em; text-transform: uppercase;
@@ -369,6 +385,21 @@
   .corr .lab { font-size: 14px; }
   .corr .v { font: 400 13px var(--mono); text-align: right; }
 
+  /* cascade in on tab switch; completes in well under a second */
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  .anim > * { animation: rise 0.45s cubic-bezier(.2, .7, .2, 1) both; animation-delay: calc(var(--i, 0) * 40ms); }
+
+  /* track record: one square per graded bet */
+  .waffle-wrap { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px 24px; align-items: end; margin-bottom: 22px; }
+  .waffle { display: flex; flex-wrap: wrap; gap: 4px; }
+  .waffle i { width: 14px; height: 14px; display: block; background: rgba(var(--text-rgb), 0.12); }
+  .waffle i.w { background: var(--good); } .waffle i.l { background: var(--bad); }
+  .waffle i.m { background: var(--good); box-shadow: inset 0 0 0 3px var(--ground); }
+  .waffle i.h { background: var(--muted); }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 10px; height: 10px; display: block; }
+
   footer { border-top: 2px solid var(--line-2); padding-block: 26px 44px; color: var(--muted); font-size: 13px; display: grid; gap: 18px; }
   footer .evidence { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px 28px; }
   footer .evidence div { display: grid; grid-template-columns: 96px 1fr; gap: 12px; align-items: baseline; }
@@ -386,10 +417,13 @@
     .corr { grid-template-columns: 1fr 70px; }
     .corr .barcell { grid-column: 1 / -1; order: 3; }
     .swatches .lbl { display: none; }
+    .helix { height: 84px; }
+    .helix-cap #helixR { display: none; }
   }
-  @media (prefers-reduced-motion: reduce) { .live::before { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .live::before, .anim > *, .ticket:hover::before { animation: none; } }
 </style>
 
+<canvas id="sky" aria-hidden="true"></canvas>
 <div class="wrap">
   <nav class="nav" aria-label="Site">
     <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>Linefield</div>
@@ -400,7 +434,6 @@
   </nav>
 
   <header class="hero">
-    <canvas id="field" aria-hidden="true"></canvas>
     <div class="hero-inner">
       <div class="kicker" id="kicker"></div>
       <h1>Every book. Every prop. <span class="hl">Before kickoff.</span></h1>
@@ -408,6 +441,9 @@
       <div class="board" id="board"></div>
     </div>
   </header>
+
+  <div class="helix" aria-hidden="true"><canvas id="helix"></canvas>
+    <div class="helix-cap"><span id="helixL"></span><span id="helixR"></span></div></div>
 
   <div class="tabs-bar"><div class="tabs" role="tablist" aria-label="Board" id="tabs"></div></div>
 
@@ -702,6 +738,11 @@ function panelRecord() {
       <div><span>ROI</span><b class="${units >= 0 ? "pos" : "neg"}">${signed(100 * units / stake, 1)}%</b><small>all plays</small></div>
       <div><span>Middles hit</span><b>${mids}/${B.length}</b><small>expect about 1 in 10</small></div>
     </div>
+    <div class="waffle-wrap"><div class="waffle">${L.map(r => {
+      const c = { win: "w", loss: "l", middle: "m", "one side": "h", push: "h" }[r.status] || "";
+      return `<i class="${c}" title="${esc(r.player)} · ${esc(r.play)} · ${esc(r.status)}"></i>`;
+    }).join("")}</div>
+      <div class="legend"><span><i style="background:var(--good)"></i>Won</span><span><i style="background:var(--bad)"></i>Lost</span><span><i style="background:var(--muted)"></i>Middle, one side</span></div></div>
     <div class="note"><span class="flag warn">${weeks} wk</span><span>A small sample: the real hit rate could be anywhere in a ±${moe.toFixed(0)}-point range. The record means something after a few hundred graded plays, and it updates every week.</span></div>
     <div class="table-wrap"><table><thead><tr><th>Player</th><th>Market</th><th>Play</th><th>Result</th><th class="r">Units</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
@@ -726,6 +767,10 @@ function render(keepFocus) {
   const caret = active === "q" ? document.activeElement.selectionStart : null;
   $("#panel").setAttribute("aria-labelledby", "tab-" + state.tab);
   $("#panel").innerHTML = PANELS[state.tab]();
+  for (const box of $("#panel").querySelectorAll(".grid, .tally, .cols, .waffle-wrap")) {
+    box.classList.add("anim");
+    [...box.children].forEach((el, i) => el.style.setProperty("--i", Math.min(i, 14)));
+  }
   const g = $("#game"); if (g) g.value = state.game;
   if (keepFocus && active === "q") { const q = $("#q"); if (q) { q.focus(); q.setSelectionRange(caret, caret); } }
 }
@@ -772,54 +817,175 @@ document.addEventListener("keydown", e => {
 applyPalette(palette);
 renderHeader();
 render();
+$("#helixL").innerHTML = `Scanning <b>${DATA.books}</b> books · <b>${DATA.shop.length}</b> props · <b>${DATA.inactives.length}</b> players out`;
+$("#helixR").innerHTML = DATA.refreshed ? `Last pass <b>${esc(DATA.refreshed)}</b>` : "";
 
-/* ---------------- particle field: settles into yard lines ---------------- */
-(function field() {
-  const cv = $("#field"); if (!cv || !cv.getContext) return;
-  const cx = cv.getContext("2d");
-  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  let W = 0, H = 0, P = [], raf = 0, WARM = "255,61,187", COOL = "39,225,255";
-  function readColors() {
-    const cs = getComputedStyle(document.documentElement);
-    WARM = cs.getPropertyValue("--gold-rgb").trim() || WARM;
-    COOL = cs.getPropertyValue("--steel-rgb").trim() || COOL;
+/* scoreboard: digits spin like a slot reel, then lock left to right. The DOM
+   already holds the final values, so a still frame is always correct. */
+(function scramble() {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const els = [...document.querySelectorAll(".board b")];
+  const finals = els.map(e => e.textContent);
+  const t0 = performance.now(), dur = 900;
+  function tick(now) {
+    const k = Math.min(1, (now - t0) / dur);
+    els.forEach((e, j) => {
+      const f = finals[j], lock = Math.floor(k * f.length * 1.15 - j * 0.35);
+      e.textContent = [...f].map((ch, i) => (/\d/.test(ch) && i >= lock) ? String((Math.random() * 10) | 0) : ch).join("");
+    });
+    if (k < 1) requestAnimationFrame(tick); else els.forEach((e, j) => (e.textContent = finals[j]));
   }
+  requestAnimationFrame(tick);
+})();
+
+/* ---------------- live field ----------------
+   One fixed canvas: a sparse parallax sky across the whole page, the hero's
+   yard-line field anchored to the header, and a pointer constellation. Plus
+   a DNA helix band. One palette read, paused when the tab is hidden, fewer
+   dots on small screens, a single still frame under reduced motion. */
+const FX = { warm: "255,61,187", cool: "39,225,255", text: "239,234,255" };
+function readFx() {
+  const cs = getComputedStyle(document.documentElement);
+  FX.warm = cs.getPropertyValue("--gold-rgb").trim() || FX.warm;
+  FX.cool = cs.getPropertyValue("--steel-rgb").trim() || FX.cool;
+  FX.text = cs.getPropertyValue("--text-rgb").trim() || FX.text;
+}
+const REDUCE = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const FINE = matchMedia("(hover: hover) and (pointer: fine)").matches;
+const pointer = { x: -1e4, y: -1e4, on: false };
+if (FINE) {
+  addEventListener("pointermove", e => { pointer.x = e.clientX; pointer.y = e.clientY; pointer.on = true; }, { passive: true });
+  document.addEventListener("pointerleave", () => { pointer.on = false; pointer.x = pointer.y = -1e4; });
+}
+
+(function sky() {
+  const cv = $("#sky"); if (!cv || !cv.getContext) return;
+  const cx = cv.getContext("2d"), hero = $(".hero");
+  let W = 0, H = 0, stars = [], field = [], raf = 0;
+  function build() {
+    const dpr = Math.min(2, devicePixelRatio || 1);
+    W = innerWidth; H = innerHeight; cv.width = W * dpr; cv.height = H * dpr; cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const small = W < 700;
+    stars = Array.from({ length: Math.round(Math.min(small ? 160 : 380, W * H / 3400)) }, () => ({
+      x: Math.random(), y: Math.random(), z: 0.25 + Math.random() * 0.75, ph: Math.random() * 6.283,
+      sp: 0.3 + Math.random(), r: 0.6 + Math.random() * 1.1, warm: Math.random() < 0.35, ox: 0, oy: 0 }));
+    field = Array.from({ length: Math.round(Math.min(small ? 700 : 1900, W * 1.6)) }, () => {
+      const line = Math.random() < 0.3;
+      return { x: line ? (Math.round(Math.random() * 10 + 0.5) / 11) + (Math.random() - 0.5) * 0.004 : Math.random(),
+        d: Math.random(), line, ph: Math.random() * 6.283, sp: 0.4 + Math.random() * 1.2,
+        warm: line ? Math.random() < 0.6 : Math.random() < 0.35, r: 0.4 + Math.random() * (line ? 0.9 : 1.2),
+        j: Math.random() - 0.5, ox: 0, oy: 0 };
+    });
+  }
+  // push a dot away from the pointer, easing back when it leaves
+  function nudge(p, x, y, reach, force) {
+    const dx = x - pointer.x, dy = y - pointer.y, d2 = dx * dx + dy * dy;
+    let tx = 0, ty = 0;
+    if (pointer.on && d2 < reach * reach) { const d = Math.sqrt(d2) || 1, f = (1 - d / reach) * force; tx = dx / d * f; ty = dy / d * f; }
+    p.ox += (tx - p.ox) * 0.12; p.oy += (ty - p.oy) * 0.12;
+    return d2;
+  }
+  function draw(now) {
+    const t = now / 1000, sy = scrollY;
+    cx.clearRect(0, 0, W, H);
+    cx.globalCompositeOperation = "lighter";
+    const near = [];
+    // sky: wraps vertically, deeper dots scroll slower
+    const span = H * 1.3;
+    for (const s of stars) {
+      let y = ((s.y * span - sy * s.z * 0.35) % span + span) % span - H * 0.15;
+      let x = s.x * W + Math.sin(t * 0.07 + s.ph) * 8 * s.z;
+      const d2 = nudge(s, x, y, 150, 26); x += s.ox; y += s.oy;
+      const a = 0.28 * s.z * (0.5 + 0.5 * Math.sin(t * s.sp + s.ph));
+      cx.fillStyle = `rgba(${s.warm ? FX.warm : FX.cool},${a})`;
+      cx.fillRect(x, y, s.r * 1.7, s.r * 1.7);
+      if (d2 < 170 * 170) near.push([x, y, d2]);
+    }
+    // hero field: follows the header up the page and fades as it leaves
+    const hr = hero.getBoundingClientRect();
+    if (hr.bottom > -80) {
+      const fade = Math.max(0, Math.min(1, (hr.bottom + 80) / (hr.height + 80)));
+      for (const p of field) {
+        const crest = hr.top + hr.height * 0.8 + Math.sin(p.x * 5.2 + t * 0.18) * hr.height * 0.07 + Math.sin(p.x * 13 + t * 0.11) * hr.height * 0.02;
+        let x = p.x * W + p.j * (p.line ? 2 : 10);
+        let y = crest + (p.d - 0.5) * hr.height * (p.line ? 0.3 : 0.24);
+        const d2 = nudge(p, x, y, 120, 22); x += p.ox; y += p.oy;
+        const a = (p.line ? 0.7 : 0.5) * fade * (0.55 + 0.45 * Math.sin(t * p.sp + p.ph));
+        cx.fillStyle = `rgba(${p.warm ? FX.warm : FX.cool},${a})`;
+        cx.fillRect(x, y, p.r * 1.6, p.r * 1.6);
+        if (d2 < 150 * 150 && near.length < 60) near.push([x, y, d2]);
+      }
+    }
+    cx.globalCompositeOperation = "source-over";
+    // constellation: thin links from the pointer to the closest dots
+    if (pointer.on && near.length) {
+      near.sort((a, b) => a[2] - b[2]);
+      cx.lineWidth = 0.6;
+      for (const [x, y, d2] of near.slice(0, 16)) {
+        cx.strokeStyle = `rgba(${FX.text},${0.28 * (1 - Math.sqrt(d2) / 170)})`;
+        cx.beginPath(); cx.moveTo(pointer.x, pointer.y); cx.lineTo(x, y); cx.stroke();
+      }
+    }
+  }
+  function loop(now) { draw(now); raf = requestAnimationFrame(loop); }
+  function start() { cancelAnimationFrame(raf); build(); REDUCE ? draw(0) : (raf = requestAnimationFrame(loop)); }
+  addEventListener("resize", () => { clearTimeout(start._t); start._t = setTimeout(start, 150); });
+  if (REDUCE) addEventListener("scroll", () => draw(0), { passive: true });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) cancelAnimationFrame(raf); else if (!REDUCE) raf = requestAnimationFrame(loop); });
+  document.addEventListener("palettechange", () => { readFx(); if (REDUCE) draw(0); });
+  readFx(); start();
+})();
+
+(function helix() {
+  const cv = $("#helix"); if (!cv || !cv.getContext) return;
+  const cx = cv.getContext("2d");
+  let W = 0, H = 0, raf = 0, visible = true, packets = [];
   function build() {
     const r = cv.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
     W = r.width; H = r.height; cv.width = W * dpr; cv.height = H * dpr; cx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const n = Math.round(Math.min(2400, W * H / 280));
-    P = [];
-    for (let i = 0; i < n; i++) {
-      const lineP = Math.random() < 0.3;
-      const x = lineP ? (Math.round(Math.random() * 10 + 0.5) / 11) + (Math.random() - 0.5) * 0.004 : Math.random();
-      P.push({ x, d: Math.random(), lineP, ph: Math.random() * 6.283, sp: 0.4 + Math.random() * 1.2,
-        warm: lineP ? Math.random() < 0.6 : Math.random() < 0.35, r: 0.4 + Math.random() * (lineP ? 0.9 : 1.2),
-        jitter: Math.random() - 0.5, sky: !lineP && Math.random() < 0.18 });
-    }
+    packets = Array.from({ length: Math.max(4, Math.round(W / 160)) }, () => ({ u: Math.random(), v: 0.2 + Math.random() * 0.5, strand: Math.random() < 0.5 }));
   }
-  function draw(t) {
+  function draw(now) {
+    const t = now / 1000, cy = H * 0.42, amp = H * 0.26, gap = W < 700 ? 11 : 13;
     cx.clearRect(0, 0, W, H);
+    const n = Math.ceil(W / gap) + 2, twist = 0.33, spin = t * 0.9;
+    // rungs first, so the strands sit on top of them
+    cx.lineWidth = 1;
+    for (let i = 0; i < n; i += 2) {
+      const ph = i * twist + spin, x = i * gap, y1 = cy + Math.sin(ph) * amp, y2 = cy - Math.sin(ph) * amp;
+      cx.strokeStyle = `rgba(${FX.text},${0.05 + 0.1 * Math.abs(Math.cos(ph))})`;
+      cx.beginPath(); cx.moveTo(x, y1); cx.lineTo(x, y2); cx.stroke();
+    }
     cx.globalCompositeOperation = "lighter";
-    const time = t / 1000;
-    for (const p of P) {
-      let x, y;
-      if (p.sky) { x = p.x * W; y = p.d * H * 0.7; }
-      else {
-        const crest = H * 0.76 + Math.sin(p.x * 5.2 + time * 0.18) * H * 0.06 + Math.sin(p.x * 13 + time * 0.11) * H * 0.018;
-        x = p.x * W + p.jitter * (p.lineP ? 2 : 10);
-        y = crest + (p.d - 0.5) * (p.lineP ? H * 0.22 : H * 0.18);
+    for (let i = 0; i < n; i++) {
+      const ph = i * twist + spin, x = i * gap, depth = Math.cos(ph);   // +1 = front
+      for (const [sgn, col, z] of [[1, FX.warm, depth], [-1, FX.cool, -depth]]) {
+        const y = cy + sgn * Math.sin(ph) * amp, size = 1.4 + (z + 1) * 1.3, a = 0.25 + (z + 1) * 0.35;
+        let px = x, py = y;
+        if (pointer.on) {
+          const r = cv.getBoundingClientRect(), dx = x + r.left - pointer.x, dy = y + r.top - pointer.y, d = Math.hypot(dx, dy);
+          if (d < 90) { const f = (1 - d / 90) * 10; px += dx / (d || 1) * f; py += dy / (d || 1) * f; }
+        }
+        cx.fillStyle = `rgba(${col},${a})`;
+        cx.fillRect(px - size / 2, py - size / 2, size, size);
       }
-      const a = (p.sky ? 0.3 : p.lineP ? 0.7 : 0.5) * (0.55 + 0.45 * Math.sin(time * p.sp + p.ph));
-      cx.fillStyle = `rgba(${p.warm ? WARM : COOL},${a})`;
-      cx.fillRect(x, y, p.r * 1.6, p.r * 1.6);
+    }
+    // data packets riding the strands
+    for (const p of packets) {
+      p.u = (p.u + p.v * 0.0016) % 1;
+      const x = p.u * W, ph = (x / gap) * twist + spin, sgn = p.strand ? 1 : -1;
+      const y = cy + sgn * Math.sin(ph) * amp;
+      cx.fillStyle = `rgba(${FX.text},0.9)`; cx.fillRect(x - 1.5, y - 1.5, 3, 3);
+      cx.fillStyle = `rgba(${p.strand ? FX.warm : FX.cool},0.25)`; cx.fillRect(x - 5, y - 0.5, -18, 1);
     }
     cx.globalCompositeOperation = "source-over";
   }
-  function loop(t) { draw(t); raf = requestAnimationFrame(loop); }
-  function start() { cancelAnimationFrame(raf); readColors(); build(); reduce ? draw(0) : (raf = requestAnimationFrame(loop)); }
+  function loop(now) { if (visible) draw(now); raf = requestAnimationFrame(loop); }
+  function start() { cancelAnimationFrame(raf); build(); REDUCE ? draw(0) : (raf = requestAnimationFrame(loop)); }
+  if ("IntersectionObserver" in window) new IntersectionObserver(es => { visible = es[0].isIntersecting; }).observe(cv);
   addEventListener("resize", () => { clearTimeout(start._t); start._t = setTimeout(start, 150); });
-  document.addEventListener("visibilitychange", () => { if (document.hidden) cancelAnimationFrame(raf); else if (!reduce) raf = requestAnimationFrame(loop); });
-  document.addEventListener("palettechange", () => { readColors(); if (reduce) draw(0); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) cancelAnimationFrame(raf); else if (!REDUCE) raf = requestAnimationFrame(loop); });
+  document.addEventListener("palettechange", () => { if (REDUCE) draw(0); });
   start();
 })();
 </script>
