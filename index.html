@@ -293,47 +293,20 @@
   .note strong { color: var(--text); font-weight: 600; }
   .empty { color: var(--muted); padding: 48px 0; text-align: center; }
 
-  /* ---------- tickets (Best Plays) ---------- */
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(296px, 1fr)); gap: 18px; }
-  .ticket {
-    position: relative; background: var(--raise); display: flex; flex-direction: column;
-    clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
-  }
-  .ticket::before { content: ""; height: 3px; background: var(--line-2); }
-  .ticket.a::before, .ticket.b::before {
-    background-image: linear-gradient(90deg, var(--edge) 0 42%, var(--text) 50%, var(--edge) 58% 100%);
-    background-size: 260% 100%; background-position: 100% 0;
-  }
-  .ticket.a { --edge: var(--gold); } .ticket.b { --edge: var(--steel); }
-  .ticket:hover::before { animation: sweep 0.9s cubic-bezier(.4, 0, .2, 1); }
-  @keyframes sweep { from { background-position: 100% 0; } to { background-position: -60% 0; } }
-  .ticket .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 16px 0; }
-  .ticket .game { font: 700 12.5px/1 var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-  .ticket .body { padding: 12px 16px 16px; display: grid; gap: 10px; }
-  .who { font: 800 24px/1 var(--display); text-transform: uppercase; letter-spacing: 0.01em; }
-  .who small { display: block; font: 500 13px/1.3 var(--sans); color: var(--muted); text-transform: none; letter-spacing: 0; margin-top: 5px; }
-  .line-call { display: flex; align-items: baseline; gap: 10px; }
-  .line-call .side { font: 700 14px/1 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
-  .line-call .val { font: 900 46px/0.9 var(--display); color: var(--gold); }
-  .ticket.b .line-call .val { color: var(--steel); }
-  .legs { display: grid; gap: 8px; }
-  .leg { display: grid; grid-template-columns: 54px auto 1fr; align-items: baseline; gap: 10px; }
-  .leg .side { font: 700 13px/1 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
-  .leg .val { font: 900 30px/0.9 var(--display); color: var(--steel); }
-  .leg .bk { font-size: 12.5px; color: var(--muted); text-align: right; }
-  .leg .px { font: 400 12px var(--mono); color: var(--text); margin-left: 6px; }
-  /* stub: perforated tear line with notches cut into both edges */
-  .stub {
-    position: relative; border-top: 1px dashed var(--line-2); padding: 12px 16px 14px;
-    display: grid; grid-template-columns: 1fr auto; gap: 4px 14px; align-items: center;
-  }
-  .stub::before, .stub::after { content: ""; position: absolute; top: -8px; width: 16px; height: 16px; border-radius: 50%; background: var(--ground); }
-  .stub::before { left: -8px; } .stub::after { right: -8px; }
-  .stub .bk { font: 600 14px var(--sans); }
-  .stub .bk small { display: block; font-size: 11.5px; color: var(--faint); font-weight: 500; }
-  .stub .px { font: 500 22px var(--mono); text-align: right; }
-  .stub .why { grid-column: 1 / -1; font-size: 13px; color: var(--muted); }
-  .stub .why b { color: var(--text); font-weight: 600; }
+  /* ---------- Best Plays: ranked rows ---------- */
+  .plays td { vertical-align: middle; }
+  .plays .rk { width: 52px; font: 900 26px/1 var(--display); color: var(--faint); box-shadow: inset 3px 0 0 var(--edge); padding-left: 16px; }
+  .plays tr.a { --edge: var(--gold); } .plays tr.b { --edge: var(--steel); }
+  .plays tbody tr:nth-child(-n+3) .rk { color: var(--text); }
+  .plays .pl { font: 800 19px/1.05 var(--display); text-transform: uppercase; letter-spacing: 0.01em; }
+  .plays .call { white-space: nowrap; }
+  .plays .call .side { font: 700 11.5px/1 var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin-right: 8px; }
+  .plays .call .val { font: 900 30px/1 var(--display); color: var(--edge); }
+  .plays .call .mid { font: 800 22px/1 var(--display); color: var(--edge); }
+  .plays .px { font: 500 16px var(--mono); white-space: nowrap; }
+  .plays .gain { font-size: 13px; color: var(--muted); max-width: 30ch; }
+  .plays .gain b { color: var(--text); font-weight: 600; }
+  .plays .kind { display: block; margin-top: 6px; }
 
   /* ---------- tables: broadcast stat sheet ---------- */
   .table-wrap { overflow-x: auto; border-top: 2px solid var(--text); background: rgba(var(--ground-rgb), 0.9); }
@@ -553,46 +526,50 @@ function parseMiddle(play) {
 /* ---------------- panels ---------------- */
 function panelBest() {
   const A = DATA.best.filter(r => r.tier.startsWith("A")), B = DATA.best.filter(r => r.tier.startsWith("B"));
-  const rows = DATA.best.filter(r =>
+  const ranked = DATA.best.map((r, i) => ({ ...r, rank: r.rank ?? i + 1 })).sort((x, y) => x.rank - y.rank);
+  const rows = ranked.filter(r =>
     (state.filter === "all" || (state.filter === "A" ? r.tier.startsWith("A") : r.tier.startsWith("B"))) &&
     (!state.game || r.matchup === state.game) && matchQ(r.player, r.matchup, mkt(r.market)));
-  const tickets = rows.map(r => {
+  const body = rows.map(r => {
     const res = RESULTS[`${r.player}|${r.market}|${r.play}`];
     if (r.tier.startsWith("A")) {
       const [side, line] = r.play.split(" ");
       const isNumber = /number/.test(r.edge || "");
-      const why = isNumber
-        ? `Market sits at <b class="num">${esc(r.consensus)}</b>. This book is <b>${Math.abs(line - r.consensus).toFixed(1)}</b> off it in your favor.`
-        : `Same line as the market, <b>${esc((r.edge || "").replace(" pts better price", ""))} pts</b> of break-even cheaper than the typical book.`;
-      return `<article class="ticket a">
-        <div class="top"><span class="game">${esc(r.matchup)} · ${esc(kickLabel(r.matchup))}</span>${res ? resBox(res) : `<span class="flag gold">${isNumber ? "Better number" : "Better price"}</span>`}</div>
-        <div class="body">
-          <div class="who">${esc(r.player)}<small>${esc(mkt(r.market))}</small></div>
-          <div class="line-call"><span class="side">${esc(side)}</span><span class="val">${esc(line)}</span></div>
-        </div>
-        <div class="stub"><div class="bk">${esc(book(r.book))}<small>Take it here</small></div><div class="px">${esc(price(r.price))}</div><div class="why">${why}</div></div>
-      </article>`;
+      const gain = isNumber
+        ? `Market <b class="num">${esc(r.consensus)}</b> — this book is <b>${Math.abs(line - r.consensus).toFixed(1)}</b> better`
+        : `Same line, <b>${esc((r.edge || "").replace(" pts better price", ""))} pts</b> of break-even cheaper`;
+      return `<tr class="a">
+        <td class="rk num">${r.rank}</td>
+        <td><div class="pl">${esc(r.player)}</div><div class="sub">${esc(mkt(r.market))}</div></td>
+        <td class="sub">${esc(r.matchup)}<br>${esc(kickLabel(r.matchup))}</td>
+        <td class="call"><span class="side">${esc(side)}</span><span class="val">${esc(line)}</span></td>
+        <td class="r px">${esc(price(r.price))}</td>
+        <td>${esc(book(r.book))}</td>
+        <td class="gain">${gain}<span class="kind flag gold">${isNumber ? "Better number" : "Better price"}</span></td>
+        <td>${res ? resBox(res) : '<span class="sub">—</span>'}</td>
+      </tr>`;
     }
     const m = parseMiddle(r.play) || {};
     const [po, pu] = String(r.price || "").split(" / ");
     const ev = /([+-][\d.]+)% EV/.exec(r.edge || ""), pm = /P\(middle\) ([\d.]+%)/.exec(r.edge || "");
-    return `<article class="ticket b">
-      <div class="top"><span class="game">${esc(r.matchup)} · ${esc(kickLabel(r.matchup))}</span>${res ? resBox(res) : '<span class="flag steel">Middle</span>'}</div>
-      <div class="body">
-        <div class="who">${esc(r.player)}<small>${esc(mkt(r.market))} · bet both sides</small></div>
-        <div class="legs">
-          <div class="leg"><span class="side">Over</span><span class="val">${esc(m.lo)}<span class="px">${esc(po)}</span></span><span class="bk">${esc(book(m.loBook))}</span></div>
-          <div class="leg"><span class="side">Under</span><span class="val">${esc(m.hi)}<span class="px">${esc(pu)}</span></span><span class="bk">${esc(book(m.hiBook))}</span></div>
-        </div>
-      </div>
-      <div class="stub"><div class="bk">Lands ${esc(m.lo)}–${esc(m.hi)}<small>Both bets win</small></div><div class="px ${ev && +ev[1] > 0 ? "pos" : ""}">${ev ? ev[1] + "%" : ""}</div>
-        <div class="why">Chance it lands in the window: <b class="num">${pm ? pm[1] : "—"}</b>. Expected value on two units shown right.</div></div>
-    </article>`;
+    return `<tr class="b">
+      <td class="rk num">${r.rank}</td>
+      <td><div class="pl">${esc(r.player)}</div><div class="sub">${esc(mkt(r.market))} · both sides</div></td>
+      <td class="sub">${esc(r.matchup)}<br>${esc(kickLabel(r.matchup))}</td>
+      <td class="call"><span class="side">O/U</span><span class="mid">${esc(m.lo)}–${esc(m.hi)}</span></td>
+      <td class="r px">${esc(po)}<br>${esc(pu)}</td>
+      <td>${esc(book(m.loBook))}<br>${esc(book(m.hiBook))}</td>
+      <td class="gain">Lands in window <b class="num">${pm ? pm[1] : "—"}</b> · EV <b class="num ${ev && +ev[1] > 0 ? "pos" : ""}">${ev ? ev[1] + "%" : "—"}</b><span class="kind flag steel">Middle</span></td>
+      <td>${res ? resBox(res) : '<span class="sub">—</span>'}</td>
+    </tr>`;
   }).join("");
   return head("Best plays",
       "Ranked by evidence, not a model's hunch. <strong>Better number / price</strong>: one book is off the market in your favor on a bet worth making. <strong>Middles</strong>: two books far enough apart that both sides can win.",
       seg("filter", state.filter, [["all", "All", DATA.best.length], ["A", "Better #", A.length], ["B", "Middles", B.length]]) + gameSelect(DATA.best) + searchBox("Search players")) +
-    (tickets ? `<div class="grid">${tickets}</div>` : `<p class="empty">No plays match. Clear the search or pick a different game.</p>`);
+    (body ? `<div class="table-wrap"><table class="plays">
+      <thead><tr><th>#</th><th>Player</th><th>Game</th><th>Play</th><th class="r">Price</th><th>Book</th><th>Why it's here</th><th>Result</th></tr></thead>
+      <tbody class="anim-rows">${body}</tbody></table></div>`
+      : `<p class="empty">No plays match. Clear the search or pick a different game.</p>`);
 }
 
 function panelInactives() {
@@ -766,7 +743,7 @@ function render(keepFocus) {
   const caret = active === "q" ? document.activeElement.selectionStart : null;
   $("#panel").setAttribute("aria-labelledby", "tab-" + state.tab);
   $("#panel").innerHTML = PANELS[state.tab]();
-  for (const box of $("#panel").querySelectorAll(".grid, .tally, .cols, .waffle-wrap")) {
+  for (const box of $("#panel").querySelectorAll(".anim-rows, .tally, .cols, .waffle-wrap")) {
     box.classList.add("anim");
     [...box.children].forEach((el, i) => el.style.setProperty("--i", Math.min(i, 14)));
   }
