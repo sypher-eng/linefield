@@ -734,7 +734,7 @@ function head(title, blurb, controls = "") {
   return `<div class="panel-head"><div><h2>${esc(title)}</h2><p>${blurb}</p></div><div class="controls">${controls}</div></div>`;
 }
 const searchBox = (ph) => `<input class="field" id="q" type="search" placeholder="${esc(ph)}" value="${esc(state.q)}" aria-label="${esc(ph)}">`;
-const gameSelect = (rows) => `<select class="field" id="game" aria-label="Filter by game">${gamesOptions(rows)}</select>`;
+const gameSelect = (rows, key = "matchup") => `<select class="field" id="game" aria-label="Filter by game">${gamesOptions(rows, key)}</select>`;
 const matchQ = (...xs) => !state.q || xs.join(" ").toLowerCase().includes(state.q.toLowerCase());
 function seg(attr, current, opts) {
   return `<div class="seg" role="group">${opts.map(([v, l, n]) =>
@@ -926,7 +926,7 @@ function panelParlays() {
 const SLABEL = { receiving_yards: "Rec yds", receptions: "Receptions", rushing_yards: "Rush yds", passing_yards: "Pass yds" };
 const QUICK = { receiving_yards: [50, 75, 100], receptions: [3, 5, 7], rushing_yards: [50, 75, 100], passing_yards: [200, 250, 300] };
 function calcBlock() {
-  const P = DATA.proj || [];
+  const P = (DATA.proj || []).filter(r => !state.game || r.m === state.game);
   const pr = PROJ[normName(state.calcP)] || null;
   const stats = pr ? Object.keys(pr.s) : [];
   const stat = pr && stats.includes(state.calcS) ? state.calcS : stats[0];
@@ -953,7 +953,7 @@ function calcBlock() {
     </div>${out}</section>`;
 }
 function panelProj() {
-  const P = (DATA.proj || []).filter(r => (!state.pos || r.pos === state.pos) && matchQ(r.p, r.team, r.m));
+  const P = (DATA.proj || []).filter(r => (!state.pos || r.pos === state.pos) && (!state.game || r.m === state.game) && matchQ(r.p, r.team, r.m));
   const order = ["passing_yards", "rushing_yards", "receiving_yards", "receptions"];
   const cell = (r, s) => r.s[s] ? forecastCell(s, r.s[s]) : '<span class="sub">—</span>';
   const body = P.sort((a, b) => ((b.s.receiving_yards || b.s.rushing_yards || b.s.passing_yards || [0, 0, 0])[2]) - ((a.s.receiving_yards || a.s.rushing_yards || a.s.passing_yards || [0, 0, 0])[2]))
@@ -961,7 +961,7 @@ function panelProj() {
       ${order.map(s => `<td class="r">${cell(r, s)}</td>`).join("")}</tr>`).join("");
   return head("Projections",
       "Our model's forecast for every player, with the range the result should land in 80% of the time. The ranges are corrected against real seasons: the raw model's ranges held only 64–73% of results. Sportsbook lines have tracked results more closely than this forecast, so treat it as a second opinion.",
-      seg("pos", state.pos, [["", "All"], ["QB", "QB"], ["RB", "RB"], ["WR", "WR"], ["TE", "TE"]]) + searchBox("Search players")) +
+      seg("pos", state.pos, [["", "All"], ["QB", "QB"], ["RB", "RB"], ["WR", "WR"], ["TE", "TE"]]) + gameSelect(DATA.proj || [], "m") + searchBox("Search players")) +
     calcBlock() +
     `<div class="table-wrap" style="margin-top:22px"><table><thead><tr><th>Player</th>${order.map(s => `<th class="r">${SLABEL[s]}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
