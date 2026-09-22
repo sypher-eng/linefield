@@ -997,7 +997,7 @@ function panelRecord() {
     ["top", "Top tier", r => r.top_tier === true || r.top_tier === "True"],
     ["picks", "Top 20 picks", r => r.top_pick === true || r.top_pick === "True"],
     ["all", "All plays", () => true]];
-  const view = GROUPS.find(g => g[0] === state.rec) || GROUPS[0];
+  const view = GROUPS.find(g => g[0] === (state.rec || "picks")) || GROUPS[1];
   const tally = (rows) => {
     const w = rows.filter(r => r.status === "win").length, l = rows.filter(r => r.status === "loss").length;
     const units = rows.reduce((s, r) => s + r.profit, 0), stake = rows.reduce((s, r) => s + r.stake, 0);
